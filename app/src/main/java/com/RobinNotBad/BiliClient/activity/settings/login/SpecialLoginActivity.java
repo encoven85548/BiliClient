@@ -53,30 +53,52 @@ public class SpecialLoginActivity extends BaseActivity {
 
             confirm.setOnClickListener(view -> {
                 String loginInfo = textInput.getText().toString();
+
+                JSONObject jsonObject;
+                String cookies;
                 try {
-                    JSONObject jsonObject = new JSONObject(loginInfo);
-                    String cookies = jsonObject.getString("cookies");
-                    SharedPreferencesUtil.putLong(SharedPreferencesUtil.mid, Long.parseLong(NetWorkUtil.getInfoFromCookie("DedeUserID", cookies)));
-                    SharedPreferencesUtil.putString(SharedPreferencesUtil.csrf, NetWorkUtil.getInfoFromCookie("bili_jct", cookies));
-                    SharedPreferencesUtil.putString(SharedPreferencesUtil.cookies, cookies);
-                    SharedPreferencesUtil.putString(SharedPreferencesUtil.refresh_token, jsonObject.getString("refresh_token"));
-                    runOnUiThread(() -> MsgUtil.showMsg("登录成功！"));
-                    SharedPreferencesUtil.putBoolean(SharedPreferencesUtil.setup, true);
-
-                    // 测试版(非正式版)：将登录信息写入 LoginData.txt，方便更新版本后免登录
-                    if (BuildConfig.BETA) {
-                        FileUtil.saveLoginData(loginInfo);
-                    }
-
-                    NetWorkUtil.refreshHeaders();
-
-                    Intent intent1 = new Intent();
-                    intent1.setClass(SpecialLoginActivity.this, SplashActivity.class);
-                    startActivity(intent1);
-                    finish();
+                    jsonObject = new JSONObject(loginInfo);
+                    cookies = jsonObject.optString("cookies", "");
                 } catch (JSONException e) {
                     runOnUiThread(() -> MsgUtil.showMsg("请检查输入的内容，不要有多余空格或字符"));
+                    return;
                 }
+
+                // 【先校验、再落盘】以前是先把 mid/cookies 写进 SharedPreferences、再写 LoginData.txt，
+                // 于是粘进来一份 cookies 为空的 JSON 时：mid 变成 0（等于悄悄退出登录），
+                // 同时还用空数据把 LoginData.txt 里原来能用的登录信息覆盖掉 —— 表现就是"登录信息丢了"。
+                // 现在只要不是一份有效的登录（没有 cookies / 没有 SESSDATA / DedeUserID 无效）就直接取消，
+                // 一个字段都不改，原来的登录状态和备份都保持原样。
+                long uid;
+                try {
+                    uid = Long.parseLong(NetWorkUtil.getInfoFromCookie("DedeUserID", cookies));
+                } catch (Exception e) {
+                    uid = 0;
+                }
+                if (cookies.isEmpty() || !cookies.contains("SESSDATA") || uid <= 0) {
+                    runOnUiThread(() -> MsgUtil.showMsg("登录信息无效：缺少 cookies / SESSDATA / DedeUserID\n已取消，原有登录状态没有被改动"));
+                    return;
+                }
+
+                SharedPreferencesUtil.putLong(SharedPreferencesUtil.mid, uid);
+                SharedPreferencesUtil.putString(SharedPreferencesUtil.csrf, NetWorkUtil.getInfoFromCookie("bili_jct", cookies));
+                SharedPreferencesUtil.putString(SharedPreferencesUtil.cookies, cookies);
+                SharedPreferencesUtil.putString(SharedPreferencesUtil.refresh_token, jsonObject.optString("refresh_token", ""));
+                SharedPreferencesUtil.putBoolean(SharedPreferencesUtil.setup, true);
+                runOnUiThread(() -> MsgUtil.showMsg("登录成功！"));
+
+                // 测试版(非正式版)：把登录信息写入 LoginData.txt，方便更新版本后免登录。
+                // 必须"确认已登录"才写（上面已校验过，这里再兜一层），绝不用空数据覆盖原来的备份。
+                if (BuildConfig.BETA && SharedPreferencesUtil.isLoggedIn()) {
+                    FileUtil.saveLoginData(loginInfo);
+                }
+
+                NetWorkUtil.refreshHeaders();
+
+                Intent intent1 = new Intent();
+                intent1.setClass(SpecialLoginActivity.this, SplashActivity.class);
+                startActivity(intent1);
+                finish();
             });
         } else {
             desc.setText(R.string.special_login_export);

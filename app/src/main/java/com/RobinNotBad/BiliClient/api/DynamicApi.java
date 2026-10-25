@@ -302,6 +302,9 @@ public class DynamicApi {
     }
 
     public static long getDynamicList(List<Dynamic> dynamicList, long offset, long mid, String type) throws IOException, JSONException {
+        // 旧动态列表接口 /dynamic_svr/v1/dynamic_svr/dynamic_history 与 /space_history
+        // 已被 B 站下线（HTTP 404，旧动态路由已下线），不要改回 api.vc.bilibili.com。
+        // 动态列表统一使用下面的 polymer feed/all（关注）与 feed/space（用户空间）接口。
         String url = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/"
                 + (mid == 0 ? "all?type=" + type : "space?platform=web&web_location=333.1387&timezone_offset=-480&host_mid=" + mid)
                 + (offset == 0 ? "" : "&offset=" + offset)

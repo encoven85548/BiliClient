@@ -22,6 +22,7 @@ import com.RobinNotBad.BiliClient.listener.OnItemLongClickListener;
 import com.RobinNotBad.BiliClient.model.LocalVideo;
 import com.RobinNotBad.BiliClient.model.PlayerData;
 import com.RobinNotBad.BiliClient.util.GlideUtil;
+import com.RobinNotBad.BiliClient.util.LocalProgressUtil;
 import com.RobinNotBad.BiliClient.util.MsgUtil;
 import com.RobinNotBad.BiliClient.util.ToolsUtil;
 import com.bumptech.glide.Glide;
@@ -75,15 +76,32 @@ public class LocalVideoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
             ((LocalVideoHolder) holder).showLocalVideo(localVideo, context);
 
+            // 【注意】位置绝对不能在 bind 时捕获后长期使用：
+            // notifyItemRemoved 之后，RecyclerView 只会把"已经绑定过"的 View 的 adapter 位置往前挪，
+            // 并不会重新调用 onBindViewHolder（监听器还是原来那个 lambda），
+            // 于是捕获下来的 position 就变成旧值：
+            //   · 删掉 b 之后再长按 c，实际删掉的是 d（差一位）
+            //   · 连续删过之后再删最后一项，旧下标超出列表长度 → IndexOutOfBoundsException
+            // 所以点/长按时要重新向 holder 问一次"你现在是第几项"。
             holder.itemView.setOnClickListener(view -> {
-                if (localVideo.videoFileList != null && localVideo.videoFileList.size() == 1) {
+                int index = holder.getAdapterPosition() - 1;
+                if (index < 0 || index >= localVideoList.size())
+                    return;
+                LocalVideo video = localVideoList.get(index);
+                if (video == null)
+                    return;
+
+                if (video.videoFileList != null && video.videoFileList.size() == 1) {
                     PlayerData playerData = new PlayerData(PlayerData.TYPE_LOCAL);
-                    String mediaPath = localVideo.videoFileList.get(0);
+                    String mediaPath = video.videoFileList.get(0);
                     playerData.videoUrl = mediaPath;
-                    if (localVideo.danmakuFileList != null && !localVideo.danmakuFileList.isEmpty()) {
-                        playerData.danmakuUrl = localVideo.danmakuFileList.get(0);
+                    if (video.danmakuFileList != null && !video.danmakuFileList.isEmpty()) {
+                        playerData.danmakuUrl = video.danmakuFileList.get(0);
                     }
-                    playerData.title = localVideo.title;
+                    playerData.title = video.title;
+                    // 缓存视频没有服务端历史，读本地存的播放进度（毫秒 → 秒，
+                    // 因为 jumpToPlayer 传出去的 progress 单位是秒）
+                    playerData.progress = (int) (LocalProgressUtil.get(mediaPath) / 1000);
 
                     try {
                         Intent player = PlayerApi.jumpToPlayer(playerData);
@@ -96,23 +114,26 @@ public class LocalVideoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                         MsgUtil.showMsg("跳转失败");
                         e.printStackTrace();
                     }
-                } else if (localVideo.videoFileList != null && localVideo.videoFileList.size() > 1) {
+                } else if (video.videoFileList != null && video.videoFileList.size() > 1) {
                     Intent intent = new Intent();
                     intent.setClass(context, LocalPageChooseActivity.class);
-                    intent.putExtra("pageList", localVideo.pageList);
-                    intent.putExtra("videoFileList", localVideo.videoFileList);
-                    intent.putExtra("danmakuFileList", localVideo.danmakuFileList);
-                    intent.putExtra("title", localVideo.title);
+                    intent.putExtra("pageList", video.pageList);
+                    intent.putExtra("videoFileList", video.videoFileList);
+                    intent.putExtra("danmakuFileList", video.danmakuFileList);
+                    intent.putExtra("title", video.title);
                     context.startActivity(intent);
                 }
             });
 
             holder.itemView.setOnLongClickListener(view -> {
-                if (longClickListener != null) {
-                    longClickListener.onItemLongClick(realPosition);
-                    return true;
-                } else
+                if (longClickListener == null)
                     return false;
+                // 同样必须现取位置：列表被删过之后，绑定时的下标已经不可信了
+                int index = holder.getAdapterPosition() - 1;
+                if (index < 0 || index >= localVideoList.size())
+                    return true; // 位置已失效（正好被删/列表已刷新），忽略这次长按，别再拿旧下标去删
+                longClickListener.onItemLongClick(index);
+                return true;
             });
         } else
             ((GotoHolder) holder).show(context);

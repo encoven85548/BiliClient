@@ -1,6 +1,8 @@
 package com.RobinNotBad.BiliClient.util;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.util.Log;
 
 import com.RobinNotBad.BiliClient.BiliTerminal;
@@ -62,6 +64,28 @@ public class ToolsUtil {
         stringBuilder.append((color) & 0xff);
         Log.e("颜色", stringBuilder.toString());
         return Integer.parseInt(stringBuilder.toString());
+    }
+
+    /**
+     * 当前有没有可用网络。
+     * <p>
+     * 用来区分两件不同的事：<b>没网</b>（那就安静地走离线流程，别弹"网络错误"）
+     * 和 <b>有网但请求失败</b>（这才值得提示）。
+     * <p>
+     * 判断不出来时返回 true（宁可当作有网，也不要因为拿不到网络状态而误伤正常流程）。
+     */
+    public static boolean isNetworkAvailable() {
+        try {
+            Context context = BiliTerminal.context;
+            if (context == null) return true;
+            ConnectivityManager manager =
+                    (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (manager == null) return true;
+            NetworkInfo info = manager.getActiveNetworkInfo();
+            return info != null && info.isConnected();
+        } catch (Exception e) {
+            return true;
+        }
     }
 
 }

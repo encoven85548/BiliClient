@@ -28,6 +28,7 @@ import com.RobinNotBad.BiliClient.util.FileUtil;
 import com.RobinNotBad.BiliClient.util.MsgUtil;
 import com.RobinNotBad.BiliClient.util.NetWorkUtil;
 import com.RobinNotBad.BiliClient.util.SharedPreferencesUtil;
+import com.RobinNotBad.BiliClient.util.ToolsUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -80,6 +81,22 @@ public class SplashActivity extends Activity {
             //不需要了，我把大部分图片的硬盘缓存都关闭了，只有表情包保留，这样既可以缩减缓存占用又能在一定程度上减少流量消耗
 
             if (SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.setup, false)) {//判断是否设置完成
+                // 【离线优先】没网时直接进缓存列表，一个网络请求都不发。
+                // 以前是先请求 → 抛 IOException → catch 里 MsgUtil.err 弹"网络错误"，然后才跳缓存页；
+                // 而且这条提示是 sticky 的，会跟着显示到缓存页上 ——
+                // 明明已经正常走了离线流程，却还要挨一个报错。
+                if (!ToolsUtil.isNetworkAvailable()) {
+                    runOnUiThread(() -> {
+                        interruptSplash();
+                        splashTextView.setText("无网络连接\n已进入缓存列表");
+                        splashTextView.postDelayed(() -> {
+                            startActivity(new Intent(SplashActivity.this, LocalListActivity.class));
+                            finish();
+                        }, 300);
+                    });
+                    return;
+                }
+
                 try {
                     // 未登录时请求bilibili.com
                     if (SharedPreferencesUtil.getLong("mid", 0) != 0) {
@@ -125,26 +142,28 @@ public class SplashActivity extends Activity {
                     }, 100);
 
                 } catch (IOException e) {
+                    // 有网但请求还是失败（连上了 WiFi 却没有外网、或者 B 站接口抽风）：
+                    // 同样安静地退回离线缓存页，不弹错误提示 —— 这个阶段用户什么也做不了，
+                    // 弹出来只会吓人（而且提示是 sticky 的，会跟到缓存页上）。
+                    e.printStackTrace();
                     runOnUiThread(() -> {
-                        MsgUtil.err(e);
                         interruptSplash();
-                        splashTextView.setText("网络错误");
-                        if (SharedPreferencesUtil.getBoolean("setup", false)) {
-                            splashTextView.postDelayed(() -> {
-                                Intent intent = new Intent();
-                                intent.setClass(SplashActivity.this, LocalListActivity.class);
-                                startActivity(intent);
-                                finish();
-                            }, 300);
-                        }
+                        splashTextView.setText("网络连接失败\n已进入缓存列表");
+                        splashTextView.postDelayed(() -> {
+                            startActivity(new Intent(SplashActivity.this, LocalListActivity.class));
+                            finish();
+                        }, 300);
                     });
                 } catch (JSONException e) {
-                    runOnUiThread(() -> MsgUtil.err(e));
-                    Intent intent = new Intent();
-                    intent.setClass(SplashActivity.this, LocalListActivity.class);
-                    startActivity(intent);
-                    interruptSplash();
-                    finish();
+                    e.printStackTrace();
+                    runOnUiThread(() -> {
+                        interruptSplash();
+                        splashTextView.setText("网络数据异常\n已进入缓存列表");
+                        splashTextView.postDelayed(() -> {
+                            startActivity(new Intent(SplashActivity.this, LocalListActivity.class));
+                            finish();
+                        }, 300);
+                    });
                 }
             } else {
                 // 未设置完成(未登录)。测试版尝试从 LoginData.txt 恢复登录信息，实现更新版本后免登录
@@ -227,6 +246,9 @@ public class SplashActivity extends Activity {
     }
 
     private void checkCookieRefresh() throws IOException {
+        // 离线时不要尝试刷新 Cookie：请求失败时拿到的可能是空内容/HTML，
+        // 会被下面的 catch(JSONException) 当成"登录过期"，把登录信息直接清掉。
+        if (!ToolsUtil.isNetworkAvailable()) return;
         try {
             JSONObject cookieInfo = CookieRefreshApi.cookieInfo();
             if (cookieInfo.optBoolean("refresh")) {

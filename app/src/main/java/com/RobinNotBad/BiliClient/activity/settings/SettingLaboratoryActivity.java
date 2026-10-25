@@ -92,8 +92,9 @@ public class SettingLaboratoryActivity extends RefreshListActivity {
                         "在互动视频播放时，在左侧倍速按钮上方显示调试按钮，可以查看和修改互动视频的变量", "false"));
 
                 add(new SettingSection("title", "数据备份", "", "", ""));
-                add(new SettingSection("switch", "备份/恢复", "backup_restore_enable",
-                        "开启后，每次启动应用时会自动读取 /Documents/BiliClient 下的备份文件，恢复设置、教程进度与搜索历史。\n注意：此开关只负责“自动恢复”，不会自动备份；需要备份请点下面的「备份」按钮。恢复会覆盖当前设置，部分设置需重启应用后生效。", "false"));
+                add(new SettingSection("switch", "自动备份设置", "auto_backup_enable",
+                        "开启后，应用内对设置的修改会在 2 秒后自动同步到 /Documents/BiliClient 下的备份文件（setting.txt / guide.txt / SearchRecords.txt）。\n"
+                                + "注意：这个开关只负责“自动备份”，不会自动加载 —— 恢复备份需要到下面手动点「加载」。", "false"));
                 add(new SettingSection("button", "备份", "backup_do",
                         "将当前所有设置、教程进度备份到 setting.txt / guide.txt，搜索历史备份到 SearchRecords.txt", ""));
                 add(new SettingSection("button", "加载", "backup_load",
@@ -145,12 +146,19 @@ public class SettingLaboratoryActivity extends RefreshListActivity {
             } else if ("login_read".equals(section.id)) {
                 section.extra = (Runnable) () -> {
                     // 备份当前登录信息并写入 login.txt（与特殊登录数据格式一致）
+                    // 【先判定登录状态】没登录时 cookies 是空的，写进去就会把 login.txt 里
+                    // 原来能用的登录信息覆盖成空 —— 所以没登录直接拒绝，一个字节都不写。
+                    if (!SharedPreferencesUtil.isLoggedIn()) {
+                        MsgUtil.showMsgLong("当前未登录，已取消备份\n（否则会用空数据覆盖 login.txt 里原有的登录信息）");
+                        return;
+                    }
                     try {
                         JSONObject json = new JSONObject();
                         json.put("cookies", SharedPreferencesUtil.getString(SharedPreferencesUtil.cookies, ""));
                         json.put("refresh_token", SharedPreferencesUtil.getString(SharedPreferencesUtil.refresh_token, ""));
                         boolean ok = FileUtil.saveLoginFile(json.toString());
-                        MsgUtil.showMsgLong(ok ? "已备份当前登录信息到 login.txt" : "写入 login.txt 失败，请检查存储权限");
+                        MsgUtil.showMsgLong(ok ? "已备份当前登录信息到 login.txt"
+                                : "写入 login.txt 失败（存储权限不足，或内容被判为空已拒写）");
                     } catch (JSONException ignored) {
                         MsgUtil.showMsgLong("备份登录信息失败");
                     }

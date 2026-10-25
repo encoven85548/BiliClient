@@ -69,6 +69,7 @@ import com.RobinNotBad.BiliClient.ui.widget.BatteryView;
 import com.RobinNotBad.BiliClient.ui.widget.HighEnergyProgressBar;
 import com.RobinNotBad.BiliClient.ui.widget.recycler.CustomLinearManager;
 import com.RobinNotBad.BiliClient.util.CenterThreadPool;
+import com.RobinNotBad.BiliClient.util.LocalProgressUtil;
 import com.RobinNotBad.BiliClient.util.Logu;
 import com.RobinNotBad.BiliClient.util.MsgUtil;
 import com.RobinNotBad.BiliClient.util.NetWorkUtil;
@@ -247,7 +248,11 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
         cid = intent.getLongExtra("cid", 0);
         mid = intent.getLongExtra("mid", 0);
 
-        progress_history = intent.getIntExtra("progress", 0);
+        // 【单位】B 站接口里的 last_play_time 是"秒"，而 ijkPlayer.seekTo() 要的是"毫秒"。
+        // 本类内部切换清晰度 / 切换听视频模式时写进 progress_history 的是
+        // getCurrentPosition()（毫秒），所以这里统一换算成毫秒保存。
+        // 以前把秒直接当毫秒用，seek 只会跳到 0.x 秒，看起来就是"从历史位置播放没效果"。
+        progress_history = intent.getIntExtra("progress", 0) * 1000L;
         Logu.d("history", String.valueOf(progress_history));
 
         isLiveMode = intent.getBooleanExtra("live_mode", false);
@@ -1034,7 +1039,10 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
         }
 
         if (SharedPreferencesUtil.getBoolean("player_from_last", true) && !isLiveMode) {
-            if (progress_history > 5) {
+            // progress_history 现在统一是毫秒，所以门槛也从"5"改成"5 秒（5000 毫秒）"：
+            // 太短的历史位置（比如刚看 2 秒就退出）不值得跳，免得刚开播就抖一下。
+            // 另外历史位置比视频还长时（换了片源/重新缓存过）不跳，否则一开就直接播完。
+            if (progress_history >= 5000 && (video_all <= 0 || progress_history < video_all)) {
                 ijkPlayer.seekTo(progress_history);
                 if (hasDanmaku && mDanmakuView != null) {
                     mDanmakuView.seekTo(progress_history);
@@ -1187,10 +1195,10 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
                                 text_online.setText("");
                         });
                     } catch (Exception e) {
-                        runOnUiThread(() -> {
-                            MsgUtil.err(e);
-                            text_online.setVisibility(View.GONE);
-                        });
+                        // 这是后台每 5 秒轮询一次"多少人在看"，网络一抖就弹错误正好盖在播放画面上，
+                        // 所以只写日志、把人数隐藏掉
+                        e.printStackTrace();
+                        runOnUiThread(() -> text_online.setVisibility(View.GONE));
                         this.cancel();
                     }
                 }
@@ -1688,6 +1696,10 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
     protected void onPause() {
         super.onPause();
         Logu.v("onPause");
+        // 缓存视频：退到后台（含手表抬手灭屏）也记一下进度，免得被系统直接杀掉时白看了
+        if (!isOnlineVideo && !isLiveMode && isPrepared && ijkPlayer != null) {
+            LocalProgressUtil.save(video_url, ijkPlayer.getCurrentPosition(), video_all);
+        }
         if (!SharedPreferencesUtil.getBoolean("player_background", false)) {
             playerPause();
         }
@@ -3155,6 +3167,11 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
         if (isPlaying)
             playerPause();
         if (ijkPlayer != null) {
+            // 缓存视频没有 aid，进度上报不到 B 站历史里，单独存一份，
+            // 下次从缓存列表点进来才能接着播（在线视频仍然走历史接口上报）。
+            if (!isOnlineVideo && !isLiveMode) {
+                LocalProgressUtil.save(video_url, ijkPlayer.getCurrentPosition(), video_all);
+            }
             Intent result = new Intent();
             result.putExtra("progress", (int) ijkPlayer.getCurrentPosition());
             Logu.d("进度回传", String.valueOf(ijkPlayer.getCurrentPosition()));

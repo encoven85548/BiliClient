@@ -14,6 +14,7 @@ import com.RobinNotBad.BiliClient.adapter.video.LocalVideoAdapter;
 import com.RobinNotBad.BiliClient.model.LocalVideo;
 import com.RobinNotBad.BiliClient.util.CenterThreadPool;
 import com.RobinNotBad.BiliClient.util.FileUtil;
+import com.RobinNotBad.BiliClient.util.LocalProgressUtil;
 import com.RobinNotBad.BiliClient.util.MsgUtil;
 
 import java.io.File;
@@ -62,6 +63,11 @@ public class LocalListActivity extends InstanceActivity {
         adapter = new LocalVideoAdapter(this, videoList);
 
         adapter.setOnLongClickListener(position -> {
+            // 防御：position 是 adapter 现取的，但这一瞬间列表也可能刚被别处刷新/清空过。
+            // 之前这里不检查，配合 adapter 里"绑定时的旧下标"，连续删除后删最后一项会直接
+            // IndexOutOfBoundsException（Index: N, Size: N）崩掉。
+            if (position < 0 || position >= videoList.size()) return;
+
             long timestamp = System.currentTimeMillis();
             if (longClickPosition == position && timestamp - longClickTimestamp < 4000) {
                 // 先把文件夹名取出来：下面 remove 之后 position 就可能越界了
@@ -70,14 +76,20 @@ public class LocalListActivity extends InstanceActivity {
                 // 磁盘相关的操作全部丢到后台线程。
                 // FileUtil.getVideoDownloadPath() 里有 nomedia 的 exists/createNewFile/delete，
                 // 在手表这种慢速存储上每个都是几十毫秒级的系统调用，放在主线程就是"删一次卡一下"。
-                CenterThreadPool.run(() -> FileUtil.deleteFolder(
-                        new File(FileUtil.getVideoDownloadPath(), title)));
+                // 顺便把这个视频的本地播放进度记录清掉，免得以后重新缓存同名视频时续播到旧位置。
+                CenterThreadPool.run(() -> {
+                    File folder = new File(FileUtil.getVideoDownloadPath(), title);
+                    FileUtil.deleteFolder(folder);
+                    LocalProgressUtil.removeTree(folder.getPath());
+                });
 
                 MsgUtil.showMsg("删除成功");
                 videoList.remove(position);
-                // notifyItemRemoved 已经会让后面每一项都重新绑定一次，
-                // 再补一个 notifyItemRangeChanged 只会额外触发一批"变化动画"（每项都要多造一个 View），
-                // 低端设备上正好就是那一下卡顿的来源，所以去掉。
+                // 只发 notifyItemRemoved 就够：它会把后面的行重绘并挪动位置，
+                // 但【不会重新绑定】这些行（监听器还是原来那个），
+                // 所以 adapter 里的点击/长按必须现取 getAdapterPosition()，不能捕获 bind 时的下标；
+                // 再补 notifyItemRangeChanged 只会多触发一批"变化动画"（每项多造一个 View），
+                // 低端设备上正好就是那一下卡顿的来源。
                 adapter.notifyItemRemoved(position + 1);
                 longClickPosition = -1;
                 checkEmpty();

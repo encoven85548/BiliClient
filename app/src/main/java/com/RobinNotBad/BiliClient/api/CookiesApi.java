@@ -2,6 +2,7 @@ package com.RobinNotBad.BiliClient.api;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Pair;
 import android.view.WindowManager;
@@ -89,8 +90,13 @@ public class CookiesApi {
      */
     public static String getBuvid3Only() throws JSONException, IOException {
         String url = "https://api.bilibili.com/x/web-frontend/getbuvid";
-        JSONObject data = NetWorkUtil.getJson(url, genWebHeaders());
-        return data.optString("buvid", "");
+        JSONObject result = NetWorkUtil.getJson(url, genWebHeaders());
+        // 接口返回结构是 {"code":0,"data":{"buvid":"..."}}，buvid 在 data 里，
+        // 不是根对象；以前从根对象取会永远拿到空串，导致 buvid3 设备 Cookie 缺失。
+        if (result.has("data") && !result.isNull("data")) {
+            return result.getJSONObject("data").optString("buvid", "");
+        }
+        return "";
     }
 
     /**
@@ -175,16 +181,18 @@ public class CookiesApi {
         }
 
         // buvid3 根据浏览器端的网络请求顺序，B站自己是先获取单个buvid3的，虽然我并不知道为什么要这样做…？
-        if (!cookies.containsKey("buvid3")) {
+        if (TextUtils.isEmpty(cookies.get("buvid3"))) {
             String buvid3 = getBuvid3Only();
-            NetWorkUtil.putCookie("buvid3", buvid3);
+            if (!TextUtils.isEmpty(buvid3)) NetWorkUtil.putCookie("buvid3", buvid3);
         }
 
         // buvid3 & buvid4. Get from http API.
-        if (!cookies.containsKey("buvid4")) {
+        if (TextUtils.isEmpty(cookies.get("buvid4"))) {
             Pair<String, String> buvids = getWebBuvids();
-            NetWorkUtil.putCookie("buvid3", buvids.first);
-            NetWorkUtil.putCookie("buvid4", buvids.second);
+            if (buvids.first != null && !buvids.first.isEmpty())
+                NetWorkUtil.putCookie("buvid3", buvids.first);
+            if (buvids.second != null && !buvids.second.isEmpty())
+                NetWorkUtil.putCookie("buvid4", buvids.second);
         }
 
         // LIVE_BUVID

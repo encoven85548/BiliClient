@@ -1,6 +1,9 @@
 package com.RobinNotBad.BiliClient.util;
 
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
 
 /**
  * 被 luern0313 创建于 2020/5/4.
@@ -49,6 +52,20 @@ public class SharedPreferencesUtil {
 
     public static SharedPreferences sharedPreferences;
 
+    /**
+     * 「自动备份」的防抖：开关（auto_backup_enable）打开后，
+     * 每次改设置都延迟 2 秒重写一次备份文件；连续改一堆设置只会在停下来之后写一次，
+     * 不会因为播放器/列表频繁写 pref 而疯狂刷磁盘。文件 I/O 放到线程池里做。
+     */
+    private static final Handler AUTO_BACKUP_HANDLER = new Handler(Looper.getMainLooper());
+    private static final Runnable AUTO_BACKUP_TASK = () -> CenterThreadPool.run(() -> {
+        try {
+            BackupUtil.backupOnly();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    });
+
     public static SharedPreferences getSharedPreferences() {
         return sharedPreferences;
     }
@@ -59,6 +76,7 @@ public class SharedPreferencesUtil {
 
     public static void putString(String key, String value) {
         sharedPreferences.edit().putString(key, value).apply();
+        notifySettingChanged(key);
     }
 
     public static int getInt(String key, int def) {
@@ -67,6 +85,7 @@ public class SharedPreferencesUtil {
 
     public static void putInt(String key, int value) {
         sharedPreferences.edit().putInt(key, value).apply();
+        notifySettingChanged(key);
     }
 
     public static long getLong(String key, long def) {
@@ -75,6 +94,7 @@ public class SharedPreferencesUtil {
 
     public static void putLong(String key, long value) {
         sharedPreferences.edit().putLong(key, value).apply();
+        notifySettingChanged(key);
     }
 
     public static boolean getBoolean(String key, boolean def) {
@@ -83,10 +103,12 @@ public class SharedPreferencesUtil {
 
     public static void putBoolean(String key, boolean value) {
         sharedPreferences.edit().putBoolean(key, value).apply();
+        notifySettingChanged(key);
     }
 
     public static void putFloat(String key, float value) {
         sharedPreferences.edit().putFloat(key, value).apply();
+        notifySettingChanged(key);
     }
 
     public static float getFloat(String key, float def) {
@@ -95,6 +117,44 @@ public class SharedPreferencesUtil {
 
     public static void removeValue(String key) {
         sharedPreferences.edit().remove(key).apply();
+        notifySettingChanged(key);
     }
 
+    /**
+     * 当前是否已登录（mid 和 cookies 都非空）。
+     * <p>
+     * 专门给"自动备份登录信息"用：没登录时绝不能拿空数据去覆盖 login.txt / LoginData.txt，
+     * 否则原来能用的登录备份就被冲掉了。
+     */
+    public static boolean isLoggedIn() {
+        try {
+            if (sharedPreferences == null) return false;
+            return sharedPreferences.getLong(mid, 0) != 0
+                    && !TextUtils.isEmpty(sharedPreferences.getString(cookies, ""));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 设置被修改后调用：若「自动备份」开着，就把备份文件延迟重写一次。
+     * 只写备份文件，不做任何"加载"；加载备份仍然只能在实验室里手动点「加载」。
+     *
+     * @param key 被修改的键。运行态/登录态的数据（未读数、版本号、cookie 等，
+     *            也就是 BackupUtil 里 EXCLUDE_KEYS 那些）不算"设置改动"，不触发备份，
+     *            否则光启动时写几个未读数就会把备份文件重写一遍。
+     */
+    public static void notifySettingChanged(String key) {
+        try {
+            if (sharedPreferences == null) return;
+            // 注意：这里用的是新键 auto_backup_enable，不是旧的 backup_restore_enable。
+            // 旧键的语义是"启动时自动恢复"，沿用它会让升级上来的用户（旧开关是开的）
+            // 在第一次启动时就把自己原来的备份文件覆盖掉，所以必须换成新键、默认关闭。
+            if (!sharedPreferences.getBoolean("auto_backup_enable", false)) return;
+            if (!BackupUtil.isBackedUpKey(key)) return;
+            AUTO_BACKUP_HANDLER.removeCallbacks(AUTO_BACKUP_TASK);
+            AUTO_BACKUP_HANDLER.postDelayed(AUTO_BACKUP_TASK, 2000);
+        } catch (Exception ignored) {
+        }
+    }
 }

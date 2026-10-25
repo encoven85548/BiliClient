@@ -36,7 +36,8 @@ public class BackupUtil {
         add(SharedPreferencesUtil.refresh_token);
         add(SharedPreferencesUtil.access_key);
         add(SharedPreferencesUtil.cookie_refresh);
-        add("backup_restore_enable"); // 备份/恢复开关本身不备份，避免恢复时覆盖开关状态
+        add("backup_restore_enable"); // 旧的"备份/恢复"开关，已弃用（语义改成了自动备份），不备份
+        add("auto_backup_enable");    // 新的"自动备份设置"开关本身不备份，避免恢复时覆盖开关状态
         // 运行态/临时数据，不应备份
         add("wbi_mixin_key");
         add("last_wbi");
@@ -318,7 +319,30 @@ public class BackupUtil {
     }
 
     /**
+     * 「自动备份」的触发判断：这个 key 的改动算不算"设置改动"。
+     * <p>
+     * 被 EXCLUDE_KEYS 排除的运行态/登录态数据（未读数、版本号、cookie 等）不算 ——
+     * 否则光是启动时写几个未读数量，就会把备份文件整体重写一遍，
+     * 反而可能在用户没做任何操作时覆盖掉旧备份。
+     */
+    public static boolean isBackedUpKey(String key) {
+        if (key == null || key.isEmpty()) return false;
+        return !EXCLUDE_KEYS.contains(key);
+    }
+
+    /** 统计内容里除了 # 注释头以外有没有真正的数据行 */
+    private static boolean hasDataLines(String content) {
+        if (content == null) return false;
+        for (String line : content.split("\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty() && !trimmed.startsWith("#")) return true;
+        }
+        return false;
+    }
+
+    /**
      * 备份教程进度到 guide.txt，返回是否成功。
+     * 没有教程进度、而 guide.txt 里已经有内容时不会写 —— 免得自动备份把原有进度冲成空文件。
      */
     public static boolean backupTutorial() {
         try {
@@ -333,7 +357,12 @@ public class BackupUtil {
             for (String key : keys) {
                 appendLine(sb, key, all.get(key));
             }
-            return FileUtil.writeString(FileUtil.getGuideFile(), sb.toString());
+            String content = sb.toString();
+            java.io.File target = FileUtil.getGuideFile();
+            // 自动备份会在每次改设置后跑一遍；这时如果教程进度恰好是空的（新装/清了数据），
+            // 直接用只含注释头的文件覆盖，就会把之前备份的进度全冲掉。
+            if (!hasDataLines(content) && target.exists() && target.length() > 0) return true;
+            return FileUtil.writeString(target, content);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -400,9 +429,10 @@ public class BackupUtil {
     }
 
     /**
-     * 启动时的自动恢复（"备份/恢复"开关打开时调用）。
-     * 只补齐 SharedPreferences 中不存在的键，不会覆盖用户已经改过的设置，
-     * 避免每次启动都把实验室里的开关等设置还原成备份文件中的旧值。
+     * "只补齐缺失项"的恢复（不覆盖用户已经改过的设置）。
+     * <p>
+     * 以前启动时如果「备份/恢复」开关开着会调用它；现在那个开关改成"自动备份"语义了，
+     * 加载备份只能在实验室里手动点「加载」，所以启动时不再调用。方法保留着备用。
      */
     public static boolean autoRestore() {
         boolean s = restoreSettings(true);
@@ -433,7 +463,11 @@ public class BackupUtil {
                     sb.append(escape(item)).append('\n');
                 }
             }
-            return FileUtil.writeString(FileUtil.getSearchRecordsFile(), sb.toString());
+            String content = sb.toString();
+            java.io.File target = FileUtil.getSearchRecordsFile();
+            // 同 backupTutorial：没有搜索记录时不要把已有的 SearchRecords.txt 冲成空文件
+            if (!hasDataLines(content) && target.exists() && target.length() > 0) return true;
+            return FileUtil.writeString(target, content);
         } catch (Exception e) {
             e.printStackTrace();
             return false;

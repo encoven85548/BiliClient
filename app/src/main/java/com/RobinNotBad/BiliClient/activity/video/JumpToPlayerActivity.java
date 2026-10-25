@@ -49,7 +49,8 @@ public class JumpToPlayerActivity extends BaseActivity {
                     if (playerData.mid != 0 && playerData.aid != 0) try {
                         HistoryApi.reportHistory(playerData.aid, playerData.cid, progress / 1000);
                     } catch (Exception e) {
-                        MsgUtil.err("进度上报：", e);
+                        // 退出播放器时顺手做的一次进度上报：没网/接口抖动不该弹错误
+                        e.printStackTrace();
                     }
                     finish();
                 });

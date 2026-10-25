@@ -41,6 +41,10 @@ public class AppInfoApi {
             SharedPreferencesUtil.putBoolean("disclaimer_shown", true);
         }
 
+        // 没网时直接跳过公告/更新检查：本来也连不上，还会弹一句
+        // "无法连接到终端公告接口"，离线启动时纯属噪音（免责声明是本地逻辑，已经在上面处理过了）
+        if (!ToolsUtil.isNetworkAvailable()) return;
+
         try {
             int version = BiliTerminal.getVersion();
             int curr = ConfInfoApi.getDateCurr();

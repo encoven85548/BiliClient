@@ -18,6 +18,8 @@ import java.util.List;
 
 public class FollowApi {
     public static int getFollowingList(long mid, int page, List<UserInfo> userList) throws IOException, JSONException {
+        // 旧的关注列表接口 /feed/v1/feed/get_attention_list 已下线（HTTP 404），
+        // 关注列表统一使用 relation/followings。
         String url = "https://api.bilibili.com/x/relation/followings?vmid=" + mid + "&pn=" + page + "&ps=20&order=desc&order_type=attention";
         JSONObject callback = NetWorkUtil.getJson(url);
         if (callback.optInt("code", -1) != 0)

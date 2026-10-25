@@ -3,6 +3,8 @@
 .gradle-home
 .android
 /.idea/*
+# 各子模块下由 Android Studio 生成的 .idea（例如 brotlij/.idea）也不入库
+.idea/
 .DS_Store
 /build
 /captures

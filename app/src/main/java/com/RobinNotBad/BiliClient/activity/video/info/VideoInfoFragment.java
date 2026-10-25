@@ -301,9 +301,14 @@ public class VideoInfoFragment extends BaseFragment {
                 playerData = videoInfo.toPlayerData(0);
                 PlayerApi.getVideo(playerData, false);
                 if (playerData == null) return;
-                HistoryApi.reportHistory(videoInfo.aid, playerData.cidHistory, playerData.progress / 1000);
+                // 【单位】playerData.progress 来自接口的 last_play_time，本来就是"秒"
+                //（HistoryApi.reportHistory 要的也是秒）。这里以前又除以 1000，
+                // 结果每次打开详情页都把"看到哪"上报成 0 —— 一边想接着上次的位置播，
+                // 一边又把记录擦掉了，所以"从历史位置播放"永远没效果。
+                HistoryApi.reportHistory(videoInfo.aid, playerData.cidHistory, playerData.progress);
             } catch (Exception e) {
-                MsgUtil.err(e);
+                // 进详情页顺手做的一次"历史上报"：失败（网络抖动/没网）不该弹错误打扰用户
+                e.printStackTrace();
             }
             onFinishLoad();
         });

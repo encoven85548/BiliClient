@@ -209,8 +209,9 @@ public class FileUtil {
         return file;
     }
 
-    /** 保存登录信息(JSON字符串)到 login.txt，返回是否成功 */
+    /** 保存登录信息(JSON字符串)到 login.txt，返回是否成功。空内容一律拒写，避免覆盖原有的有效备份 */
     public static boolean saveLoginFile(String json) {
+        if (isBlankLoginJson(json)) return false;
         return writeString(getLoginFile(), json);
     }
 
@@ -234,9 +235,33 @@ public class FileUtil {
         }
     }
 
-    /** 保存登录信息(JSON字符串)到 LoginData.txt，返回是否成功 */
+    /** 保存登录信息(JSON字符串)到 LoginData.txt，返回是否成功。空内容一律拒写，避免覆盖原有的有效备份 */
     public static boolean saveLoginData(String json) {
+        if (isBlankLoginJson(json)) return false;
         return writeString(getLoginDataFile(), json);
+    }
+
+    /**
+     * 判断要写入的登录信息是不是"空的"。
+     * <p>
+     * 真实事故：登录数据为空时（比如没登录就去备份、或粘贴了一份 cookies 为空的 JSON）
+     * 也会写文件，把原来能用的 login.txt / LoginData.txt 覆盖掉，登录信息就这么丢了。
+     * 这里做最后一道兜底：明显空/无效的内容不写。
+     */
+    public static boolean isBlankLoginJson(String json) {
+        if (json == null) return true;
+        String trimmed = json.trim();
+        if (trimmed.isEmpty() || "{}".equals(trimmed) || "null".equals(trimmed)) return true;
+        // {"cookies":"","refresh_token":""} 这种"结构完整但内容是空"的也要拒写。
+        // 用 JSON 解析判断（而不是正则）：正则会因为字段顺序不同、带换行/缩进而漏判。
+        try {
+            org.json.JSONObject object = new org.json.JSONObject(trimmed);
+            String cookies = object.optString("cookies", "");
+            return cookies.trim().isEmpty();
+        } catch (Exception e) {
+            // 不是 JSON：交给上层/读取端去兜底，这里不擅自判定为空
+            return false;
+        }
     }
 
     /** 从 LoginData.txt 读取登录信息(JSON字符串)，失败返回 null */

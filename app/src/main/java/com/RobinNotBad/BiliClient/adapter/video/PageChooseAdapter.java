@@ -53,17 +53,23 @@ public class PageChooseAdapter extends RecyclerView.Adapter<PageChooseAdapter.Ho
 
         holder.folder_name.setText(nameList.get(position));
 
+        // 和 LocalVideoAdapter 一样：删掉一项之后 RecyclerView 只会挪动已绑定 View 的位置，
+        // 并不会重新绑定（监听器还是原来那个），bind 时捕获的 position 就会变成旧值。
+        // 结果就是"删 b 之后点 c 实际点到 d"，连续删后再删最后一项还会数组越界，
+        // 所以这里必须现取 holder.getAdapterPosition()。
         holder.itemView.setOnClickListener(view -> {
-            if (onItemClickListener != null)
-                onItemClickListener.onItemClick(position);
+            if (onItemClickListener == null) return;
+            int index = holder.getAdapterPosition();
+            if (index < 0 || index >= nameList.size()) return;
+            onItemClickListener.onItemClick(index);
         });
 
         holder.itemView.setOnLongClickListener(view -> {
-            if (onItemLongClickListener != null) {
-                onItemLongClickListener.onItemLongClick(position);
-                return true;
-            } else
-                return false;
+            if (onItemLongClickListener == null) return false;
+            int index = holder.getAdapterPosition();
+            if (index < 0 || index >= nameList.size()) return true; // 位置已失效，忽略这次长按
+            onItemLongClickListener.onItemLongClick(index);
+            return true;
         });
     }
 

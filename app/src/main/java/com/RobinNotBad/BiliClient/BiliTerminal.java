@@ -20,9 +20,11 @@ import com.RobinNotBad.BiliClient.api.MessageApi;
 import com.RobinNotBad.BiliClient.util.BackupUtil;
 import com.RobinNotBad.BiliClient.util.CenterThreadPool;
 import com.RobinNotBad.BiliClient.util.FileUtil;
+import com.RobinNotBad.BiliClient.util.LocalProgressUtil;
 import com.RobinNotBad.BiliClient.util.Logu;
 import com.RobinNotBad.BiliClient.util.SharedPreferencesUtil;
 import com.RobinNotBad.BiliClient.util.TerminalContext;
+import com.RobinNotBad.BiliClient.util.ToolsUtil;
 
 import org.json.JSONException;
 
@@ -65,7 +67,11 @@ public class BiliTerminal extends Application {
             Logu.LOGD_ENABLED = SharedPreferencesUtil.getBoolean("dev_logd", debugBuild);
             Logu.LOGI_ENABLED = SharedPreferencesUtil.getBoolean("dev_logi", debugBuild);
 
-            if (SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.DYNAMIC_UPDATE_CHECK_ENABLE, true) && SharedPreferencesUtil.getLong(SharedPreferencesUtil.mid, 0) != 0) {
+            // 离线启动时下面几次网络请求没有意义（虽然都吞掉了异常，但白跑一趟还费电），
+            // 顺便避免任何一处漏出"网络错误"提示
+            boolean online = ToolsUtil.isNetworkAvailable();
+
+            if (online && SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.DYNAMIC_UPDATE_CHECK_ENABLE, true) && SharedPreferencesUtil.getLong(SharedPreferencesUtil.mid, 0) != 0) {
                 CenterThreadPool.run(() -> {
                     try {
                         long updateBaseline = SharedPreferencesUtil.getLong("dynamic_update_baseline", 0);
@@ -77,7 +83,7 @@ public class BiliTerminal extends Application {
                 });
             }
 
-            if (SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.MESSAGE_UPDATE_CHECK_ENABLE, true) && SharedPreferencesUtil.getLong(SharedPreferencesUtil.mid, 0) != 0) {
+            if (online && SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.MESSAGE_UPDATE_CHECK_ENABLE, true) && SharedPreferencesUtil.getLong(SharedPreferencesUtil.mid, 0) != 0) {
                 CenterThreadPool.run(() -> {
                     try {
                         int messageUnread = MessageApi.checkMessageUnread();
@@ -91,7 +97,7 @@ public class BiliTerminal extends Application {
             }
 
             // 启动时检查应用更新（根据auto_check_update_enable设置）
-            if (SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.AUTO_CHECK_UPDATE_ENABLE, true)) {
+            if (online && SharedPreferencesUtil.getBoolean(SharedPreferencesUtil.AUTO_CHECK_UPDATE_ENABLE, true)) {
                 CenterThreadPool.run(() -> {
                     try {
                         AppInfoApi.check(context);
@@ -101,17 +107,20 @@ public class BiliTerminal extends Application {
                 });
             }
 
-            // 若实验室"备份/恢复"开关已开启，启动时从本地文件恢复设置、教程进度与搜索历史（一次性，非循环）
-            // 采用"只补齐缺失项"的方式，避免把用户后来修改过的设置还原成备份文件里的旧值
-            if (SharedPreferencesUtil.getBoolean("backup_restore_enable", false)) {
-                CenterThreadPool.run(() -> BackupUtil.autoRestore());
-            }
+            // 注意：实验室里的这个开关现在叫「自动备份设置」，语义是"把应用内的设置改动写回备份文件"
+            //（由 SharedPreferencesUtil.notifySettingChanged() 负责，2 秒防抖）。
+            // 启动时【不再】自动加载备份 —— 加载只能在实验室里手动点「加载」，
+            // 否则一启动就会把用户刚改的设置覆盖回备份文件里的旧值。
 
             // 确保 /Documents/BiliClient/login.txt 存在（即使未登录也创建），供登录信息读取/加载
             try {
                 FileUtil.getLoginFile();
             } catch (Exception ignored) {
             }
+
+            // 预热本地播放进度用的 SharedPreferences：第一次 getSharedPreferences 会读取并解析整个文件，
+            // 懒加载的话这个开销会落在"播放器退出"或"点缓存条目"上，低端手表能看出掉帧
+            CenterThreadPool.run(LocalProgressUtil::warmUp);
         }
     }
 

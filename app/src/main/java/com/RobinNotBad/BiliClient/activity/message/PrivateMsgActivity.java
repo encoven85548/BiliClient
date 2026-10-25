@@ -23,6 +23,7 @@ import com.RobinNotBad.BiliClient.ui.widget.recycler.CustomLinearManager;
 import com.RobinNotBad.BiliClient.util.CenterThreadPool;
 import com.RobinNotBad.BiliClient.util.MsgUtil;
 import com.RobinNotBad.BiliClient.util.SharedPreferencesUtil;
+import com.RobinNotBad.BiliClient.util.ToolsUtil;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -225,7 +226,9 @@ public class PrivateMsgActivity extends BaseActivity {
                     });
                 }
             } catch (Exception e) {
-                runOnUiThread(() -> MsgUtil.err(e));
+                // 这个页面每 15 秒自动刷新一次；没网时别每轮都弹一个错误出来
+                e.printStackTrace();
+                if (ToolsUtil.isNetworkAvailable()) runOnUiThread(() -> MsgUtil.err(e));
             }
         });
     }
