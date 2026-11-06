@@ -67,6 +67,21 @@ public class ToolsUtil {
     }
 
     /**
+     * 是不是低内存设备（Android 4.4 / API 19 才有这个 API，更低版本按"不是"处理）。
+     * 用来关掉一些"拿内存换渲染速度"的开关，比如弹幕绘制缓存。
+     */
+    public static boolean isLowRamDevice() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT < 19) return false;
+            android.app.ActivityManager manager = (android.app.ActivityManager)
+                    BiliTerminal.context.getSystemService(Context.ACTIVITY_SERVICE);
+            return manager != null && manager.isLowRamDevice();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
      * 当前有没有可用网络。
      * <p>
      * 用来区分两件不同的事：<b>没网</b>（那就安静地走离线流程，别弹"网络错误"）

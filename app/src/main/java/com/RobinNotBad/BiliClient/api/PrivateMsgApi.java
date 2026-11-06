@@ -108,13 +108,22 @@ public class PrivateMsgApi {
 
     public static HashMap<Long, UserInfo> getUsersInfo(ArrayList<Long> uidList)
             throws IOException, JSONException {
+        HashMap<Long, UserInfo> userMap = new HashMap<>();
+        // 没有任何会话（新账号、私信被清空）时 uidList 是空的：以前会拼出空串再
+        // substring(0, -1)，直接抛 StringIndexOutOfBoundsException: String index out of range: -1。
+        // 这个调用跑在后台线程，外层 catch 只接 IOException/JSONException，
+        // 于是就是"消息页一直弹这个报错"、严重时被 ErrorCatch 收掉进程。
+        if (uidList == null || uidList.isEmpty()) return userMap;
+
         StringBuilder userString = new StringBuilder();
         for (Long uid : uidList) {
-            userString.append(uid).append(",");
+            if (uid == null) continue;
+            if (userString.length() > 0) userString.append(',');
+            userString.append(uid);
         }
-        String url = "https://api.vc.bilibili.com/account/v1/user/cards?uids="
-                + userString.substring(0, userString.length() - 1);
-        HashMap<Long, UserInfo> userMap = new HashMap<>();
+        if (userString.length() == 0) return userMap;
+
+        String url = "https://api.vc.bilibili.com/account/v1/user/cards?uids=" + userString;
         JSONObject root = NetWorkUtil.getJson(url);
         if (root.has("data") && !root.isNull("data")) {
             JSONArray data = root.getJSONArray("data");
