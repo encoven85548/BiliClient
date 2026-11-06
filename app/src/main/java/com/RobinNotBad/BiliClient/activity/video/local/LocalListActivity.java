@@ -34,7 +34,8 @@ public class LocalListActivity extends InstanceActivity {
     private int longClickPosition = -1;
     private long longClickTimestamp;
 
-    private boolean started;
+    // 会被 DownloadService 从别的线程读，所以用 volatile
+    private volatile boolean started;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -106,17 +107,32 @@ public class LocalListActivity extends InstanceActivity {
         swipeRefreshLayout.post(() -> swipeRefreshLayout.setRefreshing(true));
 
         CenterThreadPool.run(() -> {
-            scan(FileUtil.getVideoDownloadPath());
+            // 扫描结果先放进"临时列表"：目录 IO 在后台线程做，
+            // 但【绝对不能】在后台线程改已经挂在 RecyclerView 上的 videoList —— 那会让
+            // getItemCount() 在布局过程中变化，抛
+            // "Inconsistency detected. Invalid view holder adapter position"
+            //（删除缓存条目的同时有下载完成触发刷新时，就会正好撞上这个）。
+            ArrayList<LocalVideo> scanned = new ArrayList<>(10);
+            scan(FileUtil.getVideoDownloadPath(), scanned);
             runOnUiThread(() -> {
                 // 刚打开时列表必定是空的，所以全部都是"新增"，用插入通知比 notifyDataSetChanged 便宜得多
-                adapter.notifyItemRangeInserted(1, videoList.size());
+                videoList.addAll(scanned);
+                adapter.notifyItemRangeInserted(1, scanned.size());
                 swipeRefreshLayout.setRefreshing(false);
                 started = true;
+                checkEmpty();
             });
         });
     }
 
-    private void scan(File folder) {
+    /**
+     * 扫描缓存目录。
+     * <p>
+     * 结果写进调用方给的 {@code out}，而不碰 Adapter 正在用的 {@code videoList} ——
+     * 这个方法始终跑在后台线程上，直接改 attached 的列表会让 RecyclerView 的布局读到
+     * 数量不一致的中间状态（Inconsistency detected）。
+     */
+    private void scan(File folder, ArrayList<LocalVideo> out) {
         File[] files = folder.listFiles();
         if (files == null)
             return;
@@ -150,7 +166,7 @@ public class LocalListActivity extends InstanceActivity {
                     localVideo.danmakuFileList.add(danmakuFile.toString()); // 单集视频
 
                     localVideo.calcTotalSize();
-                    videoList.add(localVideo);
+                    out.add(localVideo);
                 } else {
                     File[] pages = video.listFiles(); // 分页视频
                     if (pages != null) {
@@ -178,12 +194,11 @@ public class LocalListActivity extends InstanceActivity {
                         }
                         localVideo.calcTotalSize();
                         if (localVideo.videoFileList.size() > 0)
-                            videoList.add(localVideo);
+                            out.add(localVideo);
                     }
                 }
             }
         }
-        checkEmpty();
     }
 
     private void checkEmpty() {
@@ -200,19 +215,27 @@ public class LocalListActivity extends InstanceActivity {
 
     @SuppressLint("NotifyDataSetChanged")
     public void refresh() {
-        if (started)
-            CenterThreadPool.run(() -> {
-                runOnUiThread(() -> swipeRefreshLayout.setRefreshing(true));
+        if (!started) return;
+        // 先转圈（可能在服务线程里被调用，所以统一 post 到主线程）
+        runOnUiThread(() -> swipeRefreshLayout.setRefreshing(true));
+        CenterThreadPool.run(() -> {
+            // 后台只负责扫描，结果放进临时列表
+            ArrayList<LocalVideo> scanned = new ArrayList<>(10);
+            scan(FileUtil.getVideoDownloadPath(), scanned);
+            runOnUiThread(() -> {
+                // 列表的增删一律在主线程做，且必须是"一次性换完再通知"：
+                // 以前是后台线程 videoList.clear() + 逐个 add，主线程这边才 notifyDataSetChanged，
+                // 中间那段时间视图在布局时会看到"数量已变、但没通知"的状态，
+                // 于是抛 Inconsistency detected. Invalid view holder adapter position
+                //（删除缓存条目的同时下载完成触发刷新，就必现）。
                 videoList.clear();
-                scan(FileUtil.getVideoDownloadPath());
-                runOnUiThread(() -> {
-                    // 整个列表都重新扫过了、对象全是新的，必须整体刷新。
-                    // 以前用的是 notifyItemRangeChanged(1, 旧长度)：长度对不上时位置会错乱，
-                    // 而且每一项都会跑一次"变化动画"（每项要多复制一个 View、重新加载封面），
-                    // 低性能设备上就是刷新一下卡一下。这里只重绑、不做变化动画。
-                    adapter.notifyDataSetChanged();
-                    swipeRefreshLayout.setRefreshing(false);
-                });
+                videoList.addAll(scanned);
+                // 整个列表都重新扫过了、对象全是新的，必须整体刷新。
+                // 只重绑、不做变化动画，低性能设备上不会"刷新一下卡一下"。
+                adapter.notifyDataSetChanged();
+                swipeRefreshLayout.setRefreshing(false);
+                checkEmpty();
             });
+        });
     }
 }
