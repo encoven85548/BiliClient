@@ -1478,11 +1478,13 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
             public void drawingFinished() {
             }
         });
-        // 弹幕绘制缓存是"每条弹幕缓存一份 Bitmap"，渲染快但很吃内存。
-        // 低内存设备（手表/老手机）长时间开着弹幕看直播，十几分钟后内存就会被顶满：
+        // 弹幕绘制缓存是"每条弹幕缓存一份 Bitmap"：渲染更快但很吃内存。
+        // 低内存设备（手表/老手机）长时间开着弹幕看直播，十几分钟后内存就被顶满：
         // 表现为弹幕卡住、整机卡死，OPPO 这类激进的内存管理还会直接清掉进程。
-        // 所以低内存设备干脆不开这个缓存，用 CPU 换内存。
-        mDanmakuView.enableDanmakuDrawingCache(!ToolsUtil.isLowRamDevice());
+        // 默认"低内存设备关掉"，同时在内置播放器设置里留了开关（player_danmaku_drawing_cache），
+        // 万一系统判定不准（魔改系统、实际内存够用但想省内存等）用户可以自己压过来。
+        mDanmakuView.enableDanmakuDrawingCache(SharedPreferencesUtil.getBoolean(
+                "player_danmaku_drawing_cache", !ToolsUtil.isLowRamDevice()));
         mDanmakuView.prepare(mParser, mContext);
     }
 

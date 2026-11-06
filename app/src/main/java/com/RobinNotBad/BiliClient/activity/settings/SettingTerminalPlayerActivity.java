@@ -7,6 +7,7 @@ import com.RobinNotBad.BiliClient.R;
 import com.RobinNotBad.BiliClient.activity.base.RefreshListActivity;
 import com.RobinNotBad.BiliClient.adapter.SettingsAdapter;
 import com.RobinNotBad.BiliClient.model.SettingSection;
+import com.RobinNotBad.BiliClient.util.ToolsUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,14 @@ public class SettingTerminalPlayerActivity extends RefreshListActivity {
                 add(new SettingSection("switch", "弹幕允许重叠", "player_danmaku_allowoverlap", "", "true"));
                 add(new SettingSection("switch", "合并重复弹幕", "player_danmaku_mergeduplicate", "",
                         "false"));
+                add(new SettingSection("switch", "弹幕绘制缓存", "player_danmaku_drawing_cache",
+                        "每条弹幕会缓存一张位图：开着更流畅、更费内存，关掉更省内存，长时间开弹幕看直播时不容易卡死。\n"
+                                + "本机默认：" + (ToolsUtil.isLowRamDevice()
+                                ? "关闭（系统把这台设备判定为低内存设备）"
+                                : "开启（系统没把它判定为低内存设备）")
+                                + "。如果系统的判定不准（比如魔改系统、或者想主动省内存），可以按自己的实际体验手动改。\n"
+                                + "重新进入播放器（或切换清晰度）后生效。",
+                        String.valueOf(!ToolsUtil.isLowRamDevice())));
                 add(new SettingSection("switch", "强制为滚动弹幕", "player_danmaku_forceR2L",
                         getString(R.string.desc_danmaku_force_r2l), "false"));
                 add(new SettingSection("switch", "显示直播弹幕发送者", "player_danmaku_showsender",
