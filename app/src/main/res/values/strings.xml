@@ -225,14 +225,14 @@
     <string name="gt"><![CDATA[>]]></string>
     <string name="percent" formatted="false">%</string>
 
-    <string name="update_tip">这是一个非官方修改版，如果遇到bug请不要去打扰robin他们（虽然他们大概率也不会管了[doge]）\n本项目基于哔哩终端开源的2.9.5fix进行修改\n\n\n如果你是跨版本更新到这个版本的，可以前往官网biliterminal.cn查看过往的更新日志。\n\n此版本的更新内容完全由爅峫开发，未在安卓4设备进行测试，同时已知安卓4存在部分新增功能无法正常使用问题，如无法忍受请降级回2.9.3-fix版本。\n这个版本的问题就不要去烦Robin了，Robin现在要专注学业了。\n\n由于Robin即将高三，此版本正式发布后一年内更新速度将会极慢，除非有api变动和大量崩溃之类的严重问题。</string>
+    <string name="update_tip">这是一个非官方修改版，如果遇到bug请不要去打扰robin他们（虽然他们大概率也不会管了[doge]）\n本项目基于哔哩终端开源的2.9.5fix进行修改\n\n\n如果你是跨版本更新到这个版本的，可以前往官网biliterminal.cn查看过往的更新日志。\n</string>
 
     <!-- 新增功能放到上面，修复问题放下面，方便用户看见 -->
     <string-array name="update_log_items">
-        <item>播放器设置新增「弹幕绘制缓存」开关：默认跟随系统对低内存设备的判定，判定不准、或者想主动省内存的话可以自己改</item>
-        <item>修好了开弹幕播缓存视频时弹幕卡死、关掉弹幕画面还在、退出播放器后缓存列表整个卡死的问题（原因是弹幕绘制缓存最多会吃掉内存的三分之一，而且弹幕层还在子线程初始化）</item>
-        <item>修好了删掉缓存视频后列表偶尔报错（Inconsistency detected）甚至卡住的问题</item>
-        <item>修好了消息页反复弹报错、严重时整个应用卡死的问题（没有私信会话时查询用户信息会越界）</item>
+        <item>播放器设置新增「弹幕绘制缓存」开关：默认跟随系统对低内存设备的判定，如果判定错误、或者想主动省内存的话可以自己改</item>
+        <item>修好了开弹幕播缓存视频时弹幕卡死、关掉弹幕画面还在、退出播放器后缓存列表整个卡死的问题</item>
+        <item>修复了删掉缓存视频后列表偶尔报错（Inconsistency detected）甚至卡住的问题</item>
+        <item>修复了私信报错（userString）</item>
     </string-array>
 
     <string name="tutorial_pager">提示\n\n←这个页面可以左右翻页喵→\n\n（共有%d页，滑动一下不再显示）</string>

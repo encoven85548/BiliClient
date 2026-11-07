@@ -26,34 +26,46 @@ public class FavoriteApi {
     // TODO 合集收藏
 
     public static ArrayList<FavoriteFolder> getFavoriteFolders(long mid) throws IOException, JSONException {
-        String url = "https://space.bilibili.com/ajax/fav/getBoxList?mid=" + mid;
-        JSONObject result = NetWorkUtil.getJson(url);
-        JSONObject data = result.getJSONObject("data");
+        // 旧接口 space.bilibili.com/ajax/fav/getBoxList 已下线（HTTP 404），
+        // 改用 x/v3/fav/folder/created/list；它同样会返回默认收藏夹和封面。
         ArrayList<FavoriteFolder> folderList = new ArrayList<>();
-        if (data.has("list") && !data.isNull("list")) {
-            JSONArray list = data.getJSONArray("list");
+        int page = 1;
+        boolean hasMore = true;
+        while (hasMore && page <= 20) {
+            String url = "https://api.bilibili.com/x/v3/fav/folder/created/list"
+                    + new NetWorkUtil.FormData().setUrlParam(true)
+                    .put("up_mid", mid)
+                    .put("pn", page)
+                    .put("ps", 50);
+            JSONObject result = NetWorkUtil.getJson(url);
+            int code = result.optInt("code", -1);
+            if (code != 0)
+                throw new JSONException(code + "：" + result.optString("message", "未知API错误"));
+
+            JSONObject data = result.optJSONObject("data");
+            if (data == null) break;
+
+            JSONArray list = data.optJSONArray("list");
+            if (list == null || list.length() == 0) break;
+
             for (int i = 0; i < list.length(); i++) {
                 JSONObject folder = list.getJSONObject(i);
 
                 FavoriteFolder favoriteFolder = new FavoriteFolder();
-
-                favoriteFolder.id = folder.getLong("fav_box");
-                favoriteFolder.name = folder.getString("name");
-
-                if (!folder.isNull("videos"))
-                    favoriteFolder.cover = folder.getJSONArray("videos").getJSONObject(0).getString("pic");
-                else favoriteFolder.cover = "";
-
-                favoriteFolder.videoCount = folder.getInt("count");
-                favoriteFolder.maxCount = folder.getInt("max_count");
-                Log.e("debug-收藏夹ID", String.valueOf(favoriteFolder.id));
-                Log.e("debug-收藏夹名称", favoriteFolder.name);
-                Log.e("debug-收藏夹封面", favoriteFolder.cover);
-                Log.e("debug-收藏夹视频数量", String.valueOf(favoriteFolder.videoCount));
-                Log.e("debug-收藏夹视频上限", String.valueOf(favoriteFolder.maxCount));
-                Log.e("debug-收藏夹", "----------------");
+                // id 是完整 mlid（原始 fid + mid 后两位），旧 /x/space/fav/arc 需要原始 fid。
+                favoriteFolder.id = folder.optLong("fid", folder.optLong("id", 0));
+                favoriteFolder.name = folder.optString("title");
+                favoriteFolder.cover = folder.optString("cover");
+                favoriteFolder.videoCount = folder.optInt("media_count", 0);
+                // 新接口不再返回 max_count；0 表示未知，UI 只显示数量。
+                favoriteFolder.maxCount = folder.optInt("max_count", 0);
                 folderList.add(favoriteFolder);
             }
+
+            boolean apiHasMore = data.optBoolean("has_more", false);
+            int total = data.optInt("count", folderList.size());
+            hasMore = list.length() > 0 && (apiHasMore || folderList.size() < total);
+            page++;
         }
         return folderList;
     }
@@ -148,16 +160,21 @@ public class FavoriteApi {
     public static void getFavoriteState(long aid, ArrayList<String> folderList, ArrayList<Long> fidList, ArrayList<Boolean> stateList) throws IOException, JSONException {
         String url = "https://api.bilibili.com/x/v3/fav/folder/created/list-all?type=2&jsonp=jsonp&rid=" + aid + "&up_mid=" + SharedPreferencesUtil.getLong("mid", 0);
         JSONObject result = NetWorkUtil.getJson(url);
-        JSONObject data = result.getJSONObject("data");
+        int code = result.optInt("code", -1);
+        if (code != 0)
+            throw new JSONException(code + "：" + result.optString("message", "未知API错误"));
 
-        if (data.has("list") && !data.isNull("list")) {
-            JSONArray list = data.getJSONArray("list");
-            for (int i = 0; i < list.length(); i++) {
-                JSONObject folder = list.getJSONObject(i);
-                folderList.add(folder.getString("title"));
-                fidList.add(folder.getLong("fid"));
-                stateList.add(folder.getInt("fav_state") == 1);
-            }
+        JSONObject data = result.optJSONObject("data");
+        if (data == null) return;
+
+        JSONArray list = data.optJSONArray("list");
+        if (list == null) return;
+
+        for (int i = 0; i < list.length(); i++) {
+            JSONObject folder = list.getJSONObject(i);
+            folderList.add(folder.optString("title"));
+            fidList.add(folder.optLong("fid", 0));
+            stateList.add(folder.optInt("fav_state", 0) == 1);
         }
     }
 
