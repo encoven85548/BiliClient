@@ -1434,6 +1434,14 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
     }
 
     private void streamDanmaku(String danmakuFile, java.util.List<DmSegMobileReply> protobufSegments) {
+        // 弹幕层的 setCallback / prepare / enableDanmakuDrawingCache 全是 View 操作，必须在主线程做。
+        // 以前"缓存视频"这条路是从 CenterThreadPool 里直接调进来的（直播那条反而是主线程），
+        // 在子线程 prepare 会让弹幕线程和渲染器进入半初始化状态：
+        // 表现就是弹幕卡住、关掉弹幕画面还在、退出时 release() 把主线程一起卡死。
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            runOnUiThread(() -> streamDanmaku(danmakuFile, protobufSegments));
+            return;
+        }
         Logu.v("danmaku", "stream");
 
         mContext = DanmakuContext.create();

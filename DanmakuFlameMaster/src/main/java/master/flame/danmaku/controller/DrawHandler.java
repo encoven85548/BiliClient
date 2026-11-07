@@ -552,9 +552,13 @@ public class DrawHandler extends Handler {
                 displayMetrics.scaledDensity);
         mDisp.resetSlopPixel(mContext.scaleTextSize);
         mDisp.setHardwareAccelerated(isHardwareAccelerated);
+        // 绘制缓存的预算原来是"堆大小的 1/3"（memoryClass 256 → 85MB、512 → 170MB）。
+        // 弹幕一多就会把内存吃满：GC 疯狂回收，表现就是弹幕卡住、整个播放器卡死。
+        // 这里封顶 16MB、保底 4MB，够用又不会把进程顶到 OOM。
+        int cacheSize = 1024 * 1024 * AndroidUtils.getMemoryClass(context) / 3;
+        cacheSize = Math.max(4 * 1024 * 1024, Math.min(cacheSize, 16 * 1024 * 1024));
         IDrawTask task = useDrwaingCache
-                ? new CacheManagingDrawTask(timer, mContext, taskListener,
-                        1024 * 1024 * AndroidUtils.getMemoryClass(context) / 3)
+                ? new CacheManagingDrawTask(timer, mContext, taskListener, cacheSize)
                 : new DrawTask(timer, mContext, taskListener);
         task.setParser(mParser);
         task.prepare();

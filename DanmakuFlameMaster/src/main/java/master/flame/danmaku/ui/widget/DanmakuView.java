@@ -168,7 +168,13 @@ public class DanmakuView extends View implements IDanmakuView, IDanmakuViewContr
             HandlerThread handlerThread = this.mHandlerThread;
             mHandlerThread = null;
             try {
-                handlerThread.join();
+                // 不能无超时地 join：弹幕线程可能正卡在渲染/建缓存里（内存吃满时尤其明显），
+                // 而在主线程上无限等就是"退出播放器后整个界面卡死，下拉菜单/返回键全都没反应"。
+                handlerThread.join(1000);
+                if (handlerThread.isAlive()) {
+                    handlerThread.interrupt();
+                    handlerThread.join(300);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
