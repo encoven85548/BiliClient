@@ -8,7 +8,7 @@
     <string name="about_opensource">本程序完全开源，代码部分遵循GNU GPL-V3.0协议，布局（UI）部分遵循CC BY-NC-SA协议。\n你可以前往 https://gitee.com/RobinNotBad/BiliClient 获取源代码。</string>
     <string name="about_source">本程序使用或借鉴了下列项目的部分代码及其合法收集的API：\nWearBili：https://github.com/SpaceXC/WearBili\n腕上哔哩：https://github.com/luern0313/WristBilibili\nBAC Document：https://socialsisteryi.github.io/bilibili-API-collect\n小电视播放器：https://github.com/xinxiangshiicheng/xinxiangshicheng_wearbili_player\n程序的界面借鉴于WearBili的UI部分，设计者为@JesseGary_（已得到授权）\n\n本程序使用的第三方库：\nOkHttp：com.squareup.okhttp3:okhttp\nGlide：com.github.bumptech.glide:glide\nPhotoView：com.github.chrisbanes:PhotoView\nJsoup：org.jsoup:jsoup\nEventBus：org.greenrobot:eventbus\nIJKPlayer：https://github.com/bilibili/ijkplayer\nDanmakuFlameMaster：com.github.ctiao:DanmakuFlameMaster\nGeetest：com.geetest.sensebot:sensebot\nAOSP：https://source.android.google.cn/\n\n软件图标提供者：银狐enlab（原图来自B站）\n其他部分图标来自网络，有修改，版权归原作者所有，如有侵权，请联系开发组删除。</string>
 
-    # 旧的免责声明
+    <!-- 旧的免责声明 -->
     <string name="about_to_uncle">本软件开发的目的是使配置较低的安卓手表与老旧手机能够使用B站网页端提供的部分基本功能。本软件基于B站网页端接口运行，不会对任何接口进行恶意轰炸，也不会收集任何用户隐私信息。软件不存在付费功能，代码完全开源，收到的捐赠仅用于软件服务器的日常维护。如果您仍然认为本软件侵犯了您的权利，请联系我们（有事好商量呜呜呜）\n同时，我们也不对学生用户在不恰当的时间、地点使用本软件导致的财产损失（设备被没收）或精神伤害（？）负责。请尽量自控，不要影响到自己的学习和生活哦！</string>
 
     <string name="desc_setup_ui">首次使用，非常建议调整下界面哦~\n调整下面的选项，然后查看预览\n直到对布局满意为止</string>
@@ -223,56 +223,16 @@
     <string name="tilde">~</string>
     <string name="lt"><![CDATA[<]]></string>
     <string name="gt"><![CDATA[>]]></string>
-    <string name="percent">%</string>
+    <string name="percent" formatted="false">%</string>
 
     <string name="update_tip">这是一个非官方修改版，如果遇到bug请不要去打扰robin他们（虽然他们大概率也不会管了[doge]）\n本项目基于哔哩终端开源的2.9.5fix进行修改\n\n\n如果你是跨版本更新到这个版本的，可以前往官网biliterminal.cn查看过往的更新日志。\n\n此版本的更新内容完全由爅峫开发，未在安卓4设备进行测试，同时已知安卓4存在部分新增功能无法正常使用问题，如无法忍受请降级回2.9.3-fix版本。\n这个版本的问题就不要去烦Robin了，Robin现在要专注学业了。\n\n由于Robin即将高三，此版本正式发布后一年内更新速度将会极慢，除非有api变动和大量崩溃之类的严重问题。</string>
 
-    #新增功能放到上面，修复问题放下面，方便用户看见
+    <!-- 新增功能放到上面，修复问题放下面，方便用户看见 -->
     <string-array name="update_log_items">
-        <item>原项目链接：https://github.com/huanli233/BiliClient</item>
-        <item>=====================</item>
-        <item>=本次更新（E-1.1）=</item>
-        <item>=====================</item>
-        <item>新增缓存（本地）视频的播放进度：看到一半退出，下次点开可以接着播；删除缓存时会一并清掉对应记录</item>
-        <item>实验室的开关改名为“自动备份设置”：打开后应用内修改设置会自动同步到备份文件；启动时不再自动加载备份（加载仍然只能手动点“加载”）。升级后该开关会复位为关闭，需要的话重新打开一次</item>
-        <item>实验室“加载备份”之后的提示改成应用内的选择页，圆屏手表上不会再显示不全</item>
-        <item>签名改用固定密钥（V1+V2+V3）：从更早的版本升级可能需要先卸载一次，之后再升级可直接覆盖安装</item>
-        <item>修好了删除缓存视频的两个问题：连续删除时会删错成下面那个视频；连续删了几个之后再删最后一个会崩溃</item>
-        <item>修好了删缓存视频 / 打开缓存列表时“一下流畅一下卡顿”的问题（原因是一个开关的判断写反了，每次操作都在反复读写文件）</item>
-        <item>点“缓存”后不用再等两秒才出清晰度列表了：直接用详情页已经取到的清晰度，不再干等一次网络请求</item>
-        <item>修好了“从历史位置播放”完全没有效果的问题（进度的时间单位弄错了，而且打开视频详情页会把进度写成 0）</item>
-        <item>修好了图文 / 纯图片动态无法点赞的问题（以前固定返回 -404）</item>
-        <item>没网时启动不再弹“网络错误”：现在会安静地直接进入缓存列表</item>
-        <item>修好了没登录时点“备份登录信息”会用空数据覆盖原有登录备份、导致登录信息丢失的问题</item>
-        <item>修好了设备 Cookie（buvid3 / buvid4）取不到的问题（接口返回结构解析错了）</item>
-        <item>=====================</item>
-        <item>=下面是更早的更新日志=</item>
-        <item>=====================</item>
-        <item>新增"备份/读取终端设置、登录信息、教程进度</item>
-        <item>修改了默认视频缓存路径，如有需要可以手动改回/storages/emulated/0/Android/media/com.RobinNotBad.BiliClient</item>
-        <item>修改了默认图片缓存路径，如有需要可以手动改回/storages/emulated/0/Pictures/哔哩终端</item>
-        <item>修复在打开无图动态时会发生的崩溃、日期等显示错误</item>
-        <item>=====================</item>
-        <item>=下面是原项目的更新日志=</item>
-        <item>=====================</item>
-        <item>增加了内置播放器的互动视频支持，现在可以游玩互动视频了~（还在测试中，可能会存在问题）</item>
-        <item>增加了内置播放器的互动视频的变量调试面板（在互动开挂用（划掉））</item>
-        <item>增加了内置播放器在实验室设置中的系统媒体控件支持开关</item>
-        <item>增加了直播、番剧和影视详情页中的更多信息</item>
-        <item>增加了我的“大会员”页面领取每日经验按钮</item>
-        <item>增加了用户粉丝勋章列表</item>
-        <item>增加了私信的标记已读功能</item>
-        <item>增加了下载列表页面的屏幕常亮</item>
-        <item>增加了未读私信的提醒badge（实验性选项）</item>
-        <item>增加了菜单中的消息未读数量</item>
-        <item>修复了历史搜索为空时焦点仍然默认位于历史列表上的问题</item>
-        <item>修复了无法正常继续加载动态的报错问题</item>
-        <item>修复仅缓存音频时还是会一并缓存弹幕和字幕的问题</item>
-        <item>修复了部分专栏底部信息无法加载时未隐藏的问题</item>
-        <item>修复了直播详情页的表冠焦点问题</item>
-        <item>修复了播放器闪烁“缓存中”的问题</item>
-        <item>修复了内置播放器播放直播时的UI问题</item>
-        <item>新增了一些bug和屎山代码</item>
+        <item>播放器设置新增「弹幕绘制缓存」开关：默认跟随系统对低内存设备的判定，判定不准、或者想主动省内存的话可以自己改</item>
+        <item>修好了开弹幕播缓存视频时弹幕卡死、关掉弹幕画面还在、退出播放器后缓存列表整个卡死的问题（原因是弹幕绘制缓存最多会吃掉内存的三分之一，而且弹幕层还在子线程初始化）</item>
+        <item>修好了删掉缓存视频后列表偶尔报错（Inconsistency detected）甚至卡住的问题</item>
+        <item>修好了消息页反复弹报错、严重时整个应用卡死的问题（没有私信会话时查询用户信息会越界）</item>
     </string-array>
 
     <string name="tutorial_pager">提示\n\n←这个页面可以左右翻页喵→\n\n（共有%d页，滑动一下不再显示）</string>
@@ -283,41 +243,41 @@
     <string name="desc_search_suggestions_enable">打开此选项，在搜索页输入关键词时会自动显示搜索建议，关闭后仅显示搜索历史</string>
     <string name="desc_search_default_content_enable">打开此选项，搜索框会显示默认搜索内容作为占位符，未输入内容直接点击搜索时会搜索默认内容</string>
 
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_space">
         <item>xml/tutorial_space_2</item>
         <item>xml/tutorial_space</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_video">
         <item>xml/tutorial_video_2</item>
         <item>xml/tutorial_video</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_search">
         <item>xml/tutorial_search</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_update_install">
         <item>xml/tutorial_update_install</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_recommend">
         <item>xml/tutorial_recommend</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_message">
         <item>xml/tutorial_message</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_article">
         <item>xml/tutorial_article</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_dynamic">
         <item>xml/tutorial_dynamic</item>
     </array>
-    #后来写新功能添加的教程请放在列表的第一个
+    <!-- 后来写新功能添加的教程请放在列表的第一个 -->
     <array name="tutorial_dynamic_info">
         <item>xml/tutorial_dynamic_info</item>
     </array>
