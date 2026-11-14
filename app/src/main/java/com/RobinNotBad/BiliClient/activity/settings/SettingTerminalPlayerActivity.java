@@ -38,11 +38,23 @@ public class SettingTerminalPlayerActivity extends RefreshListActivity {
                 add(new SettingSection("switch", "缩放时可移动", "player_doublemove",
                         getString(R.string.desc_doublemove),
                         "true"));
+                add(new SettingSection("switch", "无界平移", "player_unbounded_pan",
+                        "缩放后可以把画面拖到任意位置，不再被画面边界卡住（参考凉腕播放器的无界平移），"
+                                + "看得清角落的细节；双击屏幕可以一键回正",
+                        "false"));
                 add(new SettingSection("switch", "双击快退快进", "player_doubletap_seek",
                         "双击屏幕左侧快退、右侧快进，双击屏幕中间仍然是播放/暂停；缩放状态下双击用于恢复原始大小",
                         "true"));
+                add(new SettingSection("switch", "双击优先暂停", "player_doubletap_pause_priority",
+                        "开启后双击屏幕任意位置都是播放/暂停，快退/快进让位（跳转改用进度条或按钮）。"
+                                + "关掉时按上一项的划分：两侧快退/快进、中间暂停",
+                        "false"));
                 add(new SettingSection("input_int", "快退快进秒数", "player_doubletap_seek_seconds",
                         "双击快退/快进一次跳转的秒数", "10"));
+                add(new SettingSection("switch", "记住旋转方向", "player_save_rotation",
+                        "开启后，在内置播放器里点旋转按钮会记住当前方向，下次播放直接按这个方向打开"
+                                + "（关掉则每次按「自动横屏」和界面方向的设置来）",
+                        "false"));
 
                 add(new SettingSection("divider", "", "", "", ""));
 

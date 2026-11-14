@@ -292,8 +292,14 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
         Logu.v("加载", "加载");
         super.onCreate(savedInstanceState);
 
-        screen_landscape = SharedPreferencesUtil.getBoolean("player_autolandscape", false)
-                || SharedPreferencesUtil.getBoolean("ui_landscape", false);
+        // 「记住旋转方向」：上次在内置播放器里点过旋转按钮，就按记住的方向打开；
+        // 没开这个开关（或还没记录过）时，仍然按"自动横屏 / 界面方向"来决定
+        int savedRotation = SharedPreferencesUtil.getBoolean("player_save_rotation", false)
+                ? SharedPreferencesUtil.getInt("player_rotation", -1) : -1;
+        screen_landscape = savedRotation >= 0
+                ? savedRotation == 1
+                : (SharedPreferencesUtil.getBoolean("player_autolandscape", false)
+                || SharedPreferencesUtil.getBoolean("ui_landscape", false));
         if (SharedPreferencesUtil.getBoolean("dev_player_rotate_software", false) && screen_landscape) {
             MsgUtil.showMsg("不支持默认横屏！");
             screen_landscape = false;
@@ -644,6 +650,9 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
      */
     private boolean handleDoubleTapSeek(MotionEvent e, int seekSeconds) {
         if (ijkPlayer == null || !isPrepared || isLiveMode) return false;
+
+        // 「双击优先暂停」：双击一律交给 clickUI() 当成播放/暂停，快退/快进让位
+        if (SharedPreferencesUtil.getBoolean("player_doubletap_pause_priority", false)) return false;
 
         // 缩放状态下双击依然是"恢复原始大小"（与「视频可缩放」的设置说明保持一致）
         if (SharedPreferencesUtil.getBoolean("player_scale", true)
@@ -1631,19 +1640,28 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
 
         float width_delta = 0.5f * video_width * (layout_video.getScaleX() - 1f);
         float height_delta = 0.5f * video_height * (layout_video.getScaleY() - 1f);
-        float video_x_min = video_origX - width_delta;
-        float video_x_max = video_origX + width_delta;
-        float video_y_min = video_origY - height_delta;
-        float video_y_max = video_origY + height_delta;
 
-        if (x < video_x_min)
-            x = video_x_min;
-        if (x > video_x_max)
-            x = video_x_max;
-        if (y < video_y_min)
-            y = video_y_min;
-        if (y > video_y_max)
-            y = video_y_max;
+        // 「无界平移」：放大之后不再把画面夹在边界内（参考凉腕播放器的做法），
+        // 可以一直往外拖，看角落的细节时不用来回倒手；双击屏幕可以一键回正。
+        // 只在放大状态下生效，1 倍时保持原样（避免误拖把画面移出屏幕）。
+        boolean unbounded = SharedPreferencesUtil.getBoolean("player_unbounded_pan", false)
+                && (layout_video.getScaleX() > 1.01f || layout_video.getScaleY() > 1.01f);
+
+        if (!unbounded) {
+            float video_x_min = video_origX - width_delta;
+            float video_x_max = video_origX + width_delta;
+            float video_y_min = video_origY - height_delta;
+            float video_y_max = video_origY + height_delta;
+
+            if (x < video_x_min)
+                x = video_x_min;
+            if (x > video_x_max)
+                x = video_x_max;
+            if (y < video_y_min)
+                y = video_y_min;
+            if (y > video_y_max)
+                y = video_y_max;
+        }
 
         if (layout_video.getX() != x || layout_video.getY() != y) {
             // Logu.v("gesture","moveto:" + x + "," + y);
@@ -2052,6 +2070,9 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
         btn_rotate.setOnClickListener(view -> {
             Logu.v("点击旋转按钮");
             screen_landscape = !screen_landscape;
+            // 开了「记住旋转方向」就把这次的方向记下来，下次播放直接按这个方向打开
+            if (SharedPreferencesUtil.getBoolean("player_save_rotation", false))
+                SharedPreferencesUtil.putInt("player_rotation", screen_landscape ? 1 : 0);
             if (SharedPreferencesUtil.getBoolean("dev_player_rotate_software", false))
                 softwareRotate();
             else
