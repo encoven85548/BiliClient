@@ -64,6 +64,12 @@ public class OpusParagraph {
                 break;
             case TYPE_DIVIDER:
                 this.content = analyzeDivider(para.optJSONObject("line"));
+                // 新版图文动态的分隔线经常是 {"line_type":1,"pic":null}，
+                // 以前直接 getJSONObject("pic") 会抛异常，导致整篇动态解析失败。
+                if (((String[]) this.content).length == 0) {
+                    this.type = TYPE_TEXT;
+                    this.content = "────────";
+                }
                 break;
             case TYPE_LIST:
                 this.content = analyzeList(para.optJSONObject("list"));
@@ -89,9 +95,11 @@ public class OpusParagraph {
             stringBuilder.append(analyzeText(child.optJSONObject("text")));
         }
 
-        stringBuilder.setSpan(new BackgroundColorSpan(0x33ffffff),
-                0, stringBuilder.length() - 1,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        if (stringBuilder.length() > 0) {
+            stringBuilder.setSpan(new BackgroundColorSpan(0x33ffffff),
+                    0, stringBuilder.length(),
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
 
         return stringBuilder;
     }
@@ -106,7 +114,8 @@ public class OpusParagraph {
         if (items != null) {
             for (int i = 0; i < items.length(); i++) {
                 if (i != 0) stringBuilder.append("\n");
-                JSONObject item = items.getJSONObject(i);
+                JSONObject item = items.optJSONObject(i);
+                if (item == null) continue;
                 switch (listStyle) {
                     case LIST_STYLE_NUMBER:
                         stringBuilder.append(String.valueOf(item.optInt("order"))).append(". ");
@@ -139,6 +148,7 @@ public class OpusParagraph {
                     SpannableStringBuilder childBuilder = new SpannableStringBuilder();
                     for (int j = 0; j < childrenSecondary.length(); j++) {
                         JSONObject childSecondary = childrenSecondary.optJSONObject(j);
+                        if (childSecondary == null) continue;
                         childBuilder.append(analyzeText(childSecondary.optJSONObject("text")));
                     }
                     stringBuilder.append(childBuilder);
@@ -156,10 +166,12 @@ public class OpusParagraph {
 
         SpannableStringBuilder stringBuilder = new SpannableStringBuilder();
         for (int i = 0; i < nodes.length(); i++) {
-            JSONObject node = nodes.getJSONObject(i);
+            JSONObject node = nodes.optJSONObject(i);
+            if (node == null) continue;
             switch (node.optString("type")) {
                 case "TEXT_NODE_TYPE_WORD":
-                    JSONObject word = node.getJSONObject("word");
+                    JSONObject word = node.optJSONObject("word");
+                    if (word == null) break;
 
                     int startPosition = stringBuilder.length();
                     stringBuilder.append(word.optString("words", ""));
@@ -193,15 +205,19 @@ public class OpusParagraph {
                     break;
 
                 case "TEXT_NODE_TYPE_RICH":
-                    JSONObject rich = node.getJSONObject("rich");
-                    stringBuilder.append(rich.getString("text"));
+                    JSONObject rich = node.optJSONObject("rich");
+                    if (rich == null) break;
+                    String richText = rich.optString("text");
+                    stringBuilder.append(richText);
                     switch (rich.optString("type")) {
                         case "RICH_TEXT_NODE_TYPE_EMOJI":
-                            JSONObject emoji = rich.getJSONObject("emoji");
-                            EmoteUtil.replaceSingle(stringBuilder, emoji.optString("icon_url"), emoji.optInt("size"), stringBuilder.length() - rich.getString("text").length(), stringBuilder.length(), 1.0f);
+                            JSONObject emoji = rich.optJSONObject("emoji");
+                            if (emoji != null)
+                                EmoteUtil.replaceSingle(stringBuilder, emoji.optString("icon_url"), emoji.optInt("size"), stringBuilder.length() - richText.length(), stringBuilder.length(), 1.0f);
                             break;
                         case "RICH_TEXT_NODE_TYPE_RICH":  //TODO:忘记这个叫什么名字了，根据记忆应该是这个，如果不对请调整
-                            stringBuilder.setSpan(new StringUtil.LinkClickableSpan(rich.optString("jump_url"), TYPE_WEB_URL, rich.getString("jump_url")), stringBuilder.length() - rich.getString("text").length(), stringBuilder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            String jumpUrl = rich.optString("jump_url");
+                            stringBuilder.setSpan(new StringUtil.LinkClickableSpan(jumpUrl, TYPE_WEB_URL, jumpUrl), stringBuilder.length() - richText.length(), stringBuilder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                             break;
                     }
                     break;
@@ -217,17 +233,23 @@ public class OpusParagraph {
         if (allJson == null) return new String[0];
         JSONArray picsJson = allJson.optJSONArray("pics");
         if (picsJson == null) return new String[0];
-        String[] pics = new String[picsJson.length()];
+        java.util.ArrayList<String> pics = new java.util.ArrayList<>();
         for (int i = 0; i < picsJson.length(); i++) {
-            String url = picsJson.getJSONObject(i).optString("url");
-            pics[i] = url.startsWith("http") ? url : "http:" + url;
+            JSONObject pic = picsJson.optJSONObject(i);
+            if (pic == null) continue;
+            String url = pic.optString("url");
+            if (url == null || url.isEmpty()) continue;
+            pics.add(url.startsWith("http") ? url : "http:" + url);
         }
-        return pics;
+        return pics.toArray(new String[0]);
     }
 
     public String[] analyzeDivider(JSONObject allJson) throws JSONException {
         if (allJson == null) return new String[0];
-        String url = allJson.getJSONObject("pic").optString("url");
+        JSONObject pic = allJson.optJSONObject("pic");
+        if (pic == null) return new String[0];
+        String url = pic.optString("url");
+        if (url == null || url.isEmpty()) return new String[0];
         return new String[]{url.startsWith("http") ? url : "http:" + url};
     }
 
@@ -235,28 +257,32 @@ public class OpusParagraph {
         if (rich_list == null) return "";
         SpannableStringBuilder stringBuilder = new SpannableStringBuilder();
         for (int i = 0; i < rich_list.length(); i++) {
-            JSONObject rich = rich_list.getJSONObject(i);
+            JSONObject rich = rich_list.optJSONObject(i);
+            if (rich == null) continue;
             int startLength = stringBuilder.length();
-            switch (rich.getString("type")) {
+            switch (rich.optString("type")) {
                 case "RICH_TEXT_NODE_TYPE_AT":
-                    stringBuilder.append(rich.getString("text"));
+                    stringBuilder.append(rich.optString("text"));
                     At at = new At(rich.optLong("rid"), startLength, stringBuilder.length());
                     StringUtil.setSingleAt(stringBuilder, at);
                     break;
                 case "RICH_TEXT_NODE_TYPE_TOPIC":
-                    stringBuilder.append(rich.getString("text"));
-                    stringBuilder.setSpan(new StringUtil.LinkClickableSpan(rich.getString("jump_url"), TYPE_WEB_URL, rich.getString("jump_url")), startLength, stringBuilder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    stringBuilder.append(rich.optString("text"));
+                    String jumpUrl = rich.optString("jump_url");
+                    stringBuilder.setSpan(new StringUtil.LinkClickableSpan(jumpUrl, TYPE_WEB_URL, jumpUrl), startLength, stringBuilder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     break;
                 case "RICH_TEXT_NODE_TYPE_EMOJI":
                     stringBuilder.append(rich.optString("text"));
-                    JSONObject emoji = rich.getJSONObject("emoji");
-                    String url = emoji.optString("icon_url");
-                    int size = emoji.optInt("size");
-                    EmoteUtil.replaceSingle(stringBuilder, url, size, startLength, stringBuilder.length(), 1.0f);
+                    JSONObject emoji = rich.optJSONObject("emoji");
+                    if (emoji != null) {
+                        String url = emoji.optString("icon_url");
+                        int size = emoji.optInt("size");
+                        EmoteUtil.replaceSingle(stringBuilder, url, size, startLength, stringBuilder.length(), 1.0f);
+                    }
                     break;
                 case "RICH_TEXT_NODE_TYPE_TEXT":
                 default:
-                    stringBuilder.append(rich.getString("orig_text"));
+                    stringBuilder.append(rich.optString("orig_text"));
                     break;
             }
         }

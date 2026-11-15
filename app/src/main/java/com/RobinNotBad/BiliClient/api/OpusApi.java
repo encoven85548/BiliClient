@@ -406,11 +406,28 @@ public class OpusApi {
     public static OpusParagraph[] analyzeParagraphs(JSONArray jsonArray) throws JSONException {
         OpusParagraph[] paragraphs = new OpusParagraph[jsonArray.length()];
         for (int i = 0; i < jsonArray.length(); i++) {
-            JSONObject paragraphJson = jsonArray.getJSONObject(i);
-            OpusParagraph paragraph = new OpusParagraph(paragraphJson);
-            paragraphs[i] = paragraph;
+            JSONObject paragraphJson = jsonArray.optJSONObject(i);
+            if (paragraphJson == null) {
+                paragraphs[i] = textParagraph("[空段落]");
+                continue;
+            }
+            try {
+                paragraphs[i] = new OpusParagraph(paragraphJson);
+            } catch (JSONException e) {
+                // 单个段落字段缺失（比如新版分隔线 pic 为 null）不应让整篇动态解析失败
+                Logu.e("OpusApi: 段落解析失败 type=" + paragraphJson.optInt("para_type")
+                        + " index=" + i + " : " + e.getMessage());
+                paragraphs[i] = textParagraph("[该段落解析失败]");
+            }
         }
         return paragraphs;
+    }
+
+    private static OpusParagraph textParagraph(String text) {
+        OpusParagraph paragraph = new OpusParagraph();
+        paragraph.type = OpusParagraph.TYPE_TEXT;
+        paragraph.content = text;
+        return paragraph;
     }
 
     public static void analyzeOldStyleDynamic(Opus opus, JSONObject item) throws JSONException {

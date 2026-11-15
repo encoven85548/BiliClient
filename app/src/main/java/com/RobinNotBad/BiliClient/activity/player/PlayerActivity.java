@@ -651,12 +651,11 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
     private boolean handleDoubleTapSeek(MotionEvent e, int seekSeconds) {
         if (ijkPlayer == null || !isPrepared || isLiveMode) return false;
 
-        // 「双击优先暂停」：双击一律交给 clickUI() 当成播放/暂停，快退/快进让位
-        if (SharedPreferencesUtil.getBoolean("player_doubletap_pause_priority", false)) return false;
-
-        // 缩放状态下双击依然是"恢复原始大小"（与「视频可缩放」的设置说明保持一致）
+        // 「双击不重置缩放」关着时，缩放状态下双击依然是"恢复原始大小"（与「视频可缩放」的说明一致）；
+        // 打开后这里不再拦截，缩放状态也能照常快退/快进（中间区域仍然是播放/暂停）
         if (SharedPreferencesUtil.getBoolean("player_scale", true)
-                && scaleGestureListener != null && scaleGestureListener.can_reset) return false;
+                && scaleGestureListener != null && scaleGestureListener.can_reset
+                && !SharedPreferencesUtil.getBoolean("player_doubletap_disable_reset", false)) return false;
 
         float width = layout_control.getWidth();
         if (width <= 0f) return false;
@@ -686,7 +685,11 @@ public class PlayerActivity extends Activity implements IjkMediaPlayer.OnPrepare
     private void clickUI() {
         long now_timestamp = System.currentTimeMillis();
         if (now_timestamp - timestamp_click < 300) {
-            if (SharedPreferencesUtil.getBoolean("player_scale", true) && scaleGestureListener.can_reset) {
+            // 「双击不重置缩放」打开后，双击不再回中/恢复 1 倍，直接走播放/暂停
+            boolean resetZoom = SharedPreferencesUtil.getBoolean("player_scale", true)
+                    && scaleGestureListener.can_reset
+                    && !SharedPreferencesUtil.getBoolean("player_doubletap_disable_reset", false);
+            if (resetZoom) {
                 scaleGestureListener.can_reset = false;
                 layout_video.setX(video_origX);
                 layout_video.setY(video_origY);

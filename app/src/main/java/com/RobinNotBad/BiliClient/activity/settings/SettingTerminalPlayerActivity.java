@@ -45,9 +45,10 @@ public class SettingTerminalPlayerActivity extends RefreshListActivity {
                 add(new SettingSection("switch", "双击快退快进", "player_doubletap_seek",
                         "双击屏幕左侧快退、右侧快进，双击屏幕中间仍然是播放/暂停；缩放状态下双击用于恢复原始大小",
                         "true"));
-                add(new SettingSection("switch", "双击优先暂停", "player_doubletap_pause_priority",
-                        "开启后双击屏幕任意位置都是播放/暂停，快退/快进让位（跳转改用进度条或按钮）。"
-                                + "关掉时按上一项的划分：两侧快退/快进、中间暂停",
+                add(new SettingSection("switch", "双击不重置缩放", "player_doubletap_disable_reset",
+                        "默认缩放后双击是“回中并恢复 1 倍”，会把快退/快进和暂停都截走。"
+                                + "开启后双击不再重置缩放：两侧照常快退/快进、中间照常播放/暂停；"
+                                + "想恢复原大小用双指缩回去",
                         "false"));
                 add(new SettingSection("input_int", "快退快进秒数", "player_doubletap_seek_seconds",
                         "双击快退/快进一次跳转的秒数", "10"));

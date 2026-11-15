@@ -77,7 +77,7 @@ public class BackupUtil {
         SETTINGS.put("player_doublemove", Boolean.TRUE);
         SETTINGS.put("player_doubletap_seek", Boolean.TRUE);
         SETTINGS.put("player_doubletap_seek_seconds", 10);
-        SETTINGS.put("player_doubletap_pause_priority", Boolean.FALSE);
+        SETTINGS.put("player_doubletap_disable_reset", Boolean.FALSE);
         SETTINGS.put("player_save_rotation", Boolean.FALSE);
         SETTINGS.put("player_rotation", 0);
         SETTINGS.put("player_unbounded_pan", Boolean.FALSE);
